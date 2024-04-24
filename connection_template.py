@@ -40,7 +40,7 @@ while True:
                 blueShiro.connecting = True
                 blueShiro.scan_timer.cancel()
                 blueShiro.slave_addr_type = pkt.TxAdd
-                print(Fore.GREEN + blueShiro.slave_addr.upper() + ': ' + pkt.summary()[7:] + ' Detected')
+                print(Fore.GREEN + blueShiro.slave_addr.upper() + ' Detected')
                 conn_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type, TxAdd=blueShiro.master_addr_type) / BTLE_CONNECT_REQ(
                     InitA=blueShiro.master_addr,
                     AdvA=blueShiro.slave_addr,
@@ -84,6 +84,7 @@ while True:
                 blueShiro.send(version_ind)
                 blueShiro.version_updating = False
                 blueShiro.version_updated = True
+
             ### BTLE/DATA/CTRL/ ###
             elif LL_VERSION_IND in pkt and blueShiro.version_updating:
                 conn_update_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=3) / CtrlPDU() / LL_CONNECTION_UPDATE_REQ(
@@ -150,6 +151,9 @@ while True:
                 pass
             elif ATT_Write_Response in pkt:
                 pass    
+
+            elif BTLE_EMPTY_PDU in pkt and blueShiro.connected:
+                blueShiro.send_empty_pkt()
 
     sleep(0.01)
 

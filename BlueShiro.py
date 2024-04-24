@@ -75,3 +75,7 @@ class BlueShiro:
     def save2wireshark(filename, pkt):
         wrpcap("logs/"+ filename +".pcap", pkt)
 
+    def send_empty_pkt(self):
+        empty = BTLE(access_addr=self.access_addr) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
+        self.send(empty)
+

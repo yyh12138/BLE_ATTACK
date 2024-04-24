@@ -52,7 +52,6 @@ while True:
                 interval=16,  
                 latency=0,  
                 timeout=50, 
-                # ---------------------28 Bytes until here--------------------------
                 chM=0x1FFFFFFFFF,
                 hop=5,  
                 SCA=0
