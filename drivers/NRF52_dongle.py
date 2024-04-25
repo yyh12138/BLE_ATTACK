@@ -58,14 +58,13 @@ class NRF52Dongle:
             self.pcap_filename = os.path.basename(__file__).split('.')[0] + '.pcap'
         else:
             self.pcap_filename = pcap_filename
-
         self.set_log_tx(0)
-
-        if self.n_debug:
-            print('NRF52 Dongle: Instance started')
 
     def close(self):
         print('NRF52 Dongle closed')
+
+    def set_debug_mode(self, debug=False):
+        self.n_debug = debug
 
     def save_pcap(self):
         wrpcap(self.pcap_filename, self.packets_buffer)  # save packet just sent
@@ -82,16 +81,16 @@ class NRF52Dongle:
         self.serial.write(data)
 
         if self.n_debug:
-            print('Bytes sent: ' + binascii.hexlify(data).upper())
+            print('Hexs sent: ' + binascii.hexlify(data).upper())
 
         return data
 
-    def send(self, scapy_pkt, print_tx=True, force_pcap_save=False):
-        self.raw_send(raw(scapy_pkt))
-        if self.logs_pcap and (self.pcap_tx_handover is 0 or force_pcap_save):
-            self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=0x3) / scapy_pkt)
-        if print_tx:
-            print(Fore.CYAN + "TX ---> " + scapy_pkt.summary()[7:])
+    # def send(self, scapy_pkt, print_tx=True, force_pcap_save=False):
+    #     self.raw_send(raw(scapy_pkt))
+    #     if self.logs_pcap and (self.pcap_tx_handover is 0 or force_pcap_save):
+    #         self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=0x3) / scapy_pkt)
+    #     if print_tx:
+    #         print(Fore.MAGENTA + "TX ---> " + scapy_pkt.summary()[7:])
 
     def raw_receive(self):
         c = self.serial.read(1)
@@ -120,7 +119,7 @@ class NRF52Dongle:
                     self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=n_flags) / BTLE(data))
 
                 if self.n_debug:
-                    print("Hex: " + binascii.hexlify(data).upper())
+                    print("Hexs received: " + binascii.hexlify(data).upper())
 
                 return ret_data
         # Receive logs from dongle

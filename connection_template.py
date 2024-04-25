@@ -37,6 +37,9 @@ while True:
                 print(Fore.CYAN + "RX <--- " + pkt.summary()[7:])
             ### BTLE/ADV/ ###
             if (BTLE_SCAN_RSP in pkt or BTLE_ADV in pkt) and pkt.AdvA == blueShiro.slave_addr.lower() and blueShiro.connecting == False:
+                if blueShiro.connected:
+                    print(Fore.RED + blueShiro.slave_addr.upper() + ' Disconnect')
+                    exit(0)
                 blueShiro.connecting = True
                 blueShiro.scan_timer.cancel()
                 blueShiro.slave_addr_type = pkt.TxAdd
@@ -151,9 +154,11 @@ while True:
                 pass
             elif ATT_Write_Response in pkt:
                 pass    
-
+            
+            # keep connection alive
             elif BTLE_EMPTY_PDU in pkt and blueShiro.connected:
-                blueShiro.send_empty_pkt()
+                empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
+                blueShiro.send(empty_pdu)
 
     sleep(0.01)
 

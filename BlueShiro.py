@@ -49,6 +49,9 @@ class BlueShiro:
         return self.master_addr
     def get_master_addr_type(self):
         return self.master_addr_type
+    
+    def set_NRF52Dongle_debug_mode(self, debug=False):
+        self.driver.set_debug_mode(debug)
 
     def send(self, pkt, printTx=True):
         self.driver.raw_send(raw(pkt))
@@ -74,8 +77,5 @@ class BlueShiro:
 
     def save2wireshark(filename, pkt):
         wrpcap("logs/"+ filename +".pcap", pkt)
-
-    def send_empty_pkt(self):
-        empty = BTLE(access_addr=self.access_addr) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
-        self.send(empty)
+        
 
