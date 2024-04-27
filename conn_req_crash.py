@@ -119,14 +119,12 @@ while running<10:
             elif BTLE_EMPTY_PDU in pkt and blueShiro.connected:
                 empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
                 blueShiro.send(empty_pdu)
+                running += 1
 
     sleep(0.01)
 
-
-scan_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type) / BTLE_SCAN_REQ(
-    ScanA=blueShiro.master_addr,
-    AdvA=blueShiro.slave_addr)
-blueShiro.send(scan_req)
+terminate_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=3) / CtrlPDU() / LL_TERMINATE_IND(code=0x13)
+blueShiro.send(terminate_req)
 blueShiro.driver.save_pcap(filename="nRF52Dongle_" + os.path.basename(__file__).split('.')[0] + ".pcap")
 sleep(2)
 print(Fore.YELLOW + "Connection Reseting. Script Ends")
