@@ -38,7 +38,7 @@ class NRF52Dongle:
     sent_pkt = None
 
     # Constructor ------------------------------------
-    def __init__(self, port_name=None, baudrate=115200, debug=False, logs=True, logs_pcap=False, pcap_filename=None):
+    def __init__(self, port_name=None, baudrate=115200, debug=False, logs=True, logs_pcap=True, pcap_filename=None):
 
         if port_name is None:
             found = False
@@ -66,8 +66,11 @@ class NRF52Dongle:
     def set_debug_mode(self, debug=False):
         self.n_debug = debug
 
-    def save_pcap(self):
-        wrpcap(self.pcap_filename, self.packets_buffer)  # save packet just sent
+    def save_pcap(self, filename=None):
+        if filename:
+            wrpcap(filename, self.packets_buffer)
+        else:
+            wrpcap(self.pcap_filename, self.packets_buffer)  # save packet just sent
         # del self.packets_buffer
         self.packets_buffer = []
 
@@ -85,12 +88,12 @@ class NRF52Dongle:
 
         return data
 
-    # def send(self, scapy_pkt, print_tx=True, force_pcap_save=False):
-    #     self.raw_send(raw(scapy_pkt))
-    #     if self.logs_pcap and (self.pcap_tx_handover is 0 or force_pcap_save):
-    #         self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=0x3) / scapy_pkt)
-    #     if print_tx:
-    #         print(Fore.MAGENTA + "TX ---> " + scapy_pkt.summary()[7:])
+    def send(self, scapy_pkt, print_tx=True):
+        self.raw_send(raw(scapy_pkt))
+        if self.logs_pcap:
+            self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=0x3) / scapy_pkt)
+        if print_tx:
+            print(Fore.MAGENTA + "TX ---> " + scapy_pkt.summary()[7:])
 
     def raw_receive(self):
         c = self.serial.read(1)

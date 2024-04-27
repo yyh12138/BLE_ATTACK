@@ -10,8 +10,10 @@ from BlueShiro import BlueShiro
 from colorama import Fore
 
 phone_address = "fc:a9:f5:45:42:5a"
-temperature_sensor_address = "a4:c1:38:7d:ab:b9"
+xiaomi_temperature_sensor_2_address = "a4:c1:38:7d:ab:b9"
+xiaomi_temperature_sensor_3_address = "a4:c1:38:3b:f1:71"
 running = 0
+
 blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", "a4:c1:38:7d:ab:b9")
 
 scan_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type) / BTLE_SCAN_REQ(
@@ -26,6 +28,8 @@ while running<10:
     data = blueShiro.driver.raw_receive()
     if data:
         pkt = BTLE(data)
+        if blueShiro.encryptable:
+           pkt = blueShiro.receive_pkt_encrypted(pkt) 
         if pkt is None:
             blueShiro.none_count += 1
             if blueShiro.none_count >= 3:
@@ -59,54 +63,28 @@ while running<10:
                     hop=5,  
                     SCA=0
                 )
-                # d6be898e05227092b5cca670b9ab7d38c1a47083329a9c9a1702020018000000f401ffffffff1f0558ffb8
-                # Access Address: d6be898e 
-                # Packet Header: 0522
-                # Initiator Address: 7092b5cca670
-                # Advertising Address: b9ab7d38c1a4
-                ### Access Address: 7083329a
-                ### CRC Init: 9c9a17
-                ### Window Size: 02
-                ### Window Offset: 0200
-                ### Interval: 1800
-                ### Latency: 0000
-                ### Timeout: f401
-                ### chM: ffffffff1f
-                ### hop+SCA: 05
-                # CRC: 58ffb8
                 blueShiro.send(conn_req)
                 blueShiro.version_updating = True
             elif BTLE_DATA in pkt and blueShiro.version_updating:
-                version_ind = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / CtrlPDU() / LL_VERSION_IND(version='4.2')
-                # 7083329a03060c080000000084f06d
-                # Access Address: 7083329a
-                # Data Header: 0306
-                # Control Opcode: 0c
-                # Version Number: 08
-                # Company ID+Subversion Number: 00000000
-                # CRC: 84f06d
+                version_ind = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / CtrlPDU() / LL_VERSION_IND(version='5.0')
                 blueShiro.send(version_ind)
                 blueShiro.version_updating = False
                 blueShiro.version_updated = True
 
             ### BTLE/DATA/CTRL/ ###
             elif LL_VERSION_IND in pkt and blueShiro.version_updated:
-                conn_update_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=3) / CtrlPDU() / LL_CONNECTION_UPDATE_REQ(
-                    win_size=1,
-                    win_offset=0,
-                    interval=6,
-                    latency=0,
-                    timeout=500,
-                    instant=15
+                blueShiro.set_pairing_iocap(0x04)                # keyboardDisplay
+                blueShiro.set_pairing_auth_request(0x08 | 0x00)  # LESC + no bounding
+                pairing_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / L2CAP_Hdr() / SM_Hdr() / SM_Pairing_Request(
+                    iocap=blueShiro.pairing_iocap,
+                    oob=0,
+                    authentication=blueShiro.pairing_auth_request,
+                    max_key_size=16,
+                    initiator_key_distribution=0x07,
+                    responder_key_distribution=0x07
                 )
-                # 7083329a030c0001000006000000f4010f003d199e
-                # Access Address: 7083329a
-                # Data Header: 030c
-                # Control Opcode: 00
-                # Window Size+Window Offset+Interval+Latency+Timeout+Instant: 01 0000 0600 0000 f401 0f00
-                # CRC: 3d199e
-                blueShiro.send(conn_update_req)
-                
+                blueShiro.send(pairing_req)
+
             elif LL_LENGTH_REQ in pkt:
                 pass
             elif LL_LENGTH_RSP in pkt:
@@ -117,16 +95,6 @@ while running<10:
                 conn_param_update_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / L2CAP_Hdr() / L2CAP_CmdHdr(code=19, id=1) / L2CAP_Connection_Parameter_Update_Response(
                     move_result=0
                 )
-                # 7083329a020a060005001301020000003b1a7e
-                # Access Address: 7083329a
-                # Data Header: 020a
-                ### Length: 0600
-                ### CID: 0500
-                ##### Command Code: 13
-                ##### Command ID: 01
-                ##### Command Length: 02
-                ##### Move Result: 000000
-                # CRC: 3b1a7e
                 blueShiro.send(conn_param_update_req)
                 blueShiro.connected = True
                 blueShiro.connecting = False
@@ -138,11 +106,12 @@ while running<10:
             elif SM_Pairing_Request in pkt:
                 pass
             elif SM_Pairing_Response in pkt:
-                pass
+                if not (pkt.authentication & 0x08):
+                    print(Fore.YELLOW + "Device doesn't accept LESC")
             elif SM_Public_Key in pkt:
                 pass
             elif SM_Failed in pkt:
-                pass
+                print(Fore.YELLOW + "Device Cannot Pairing")
 
             ### BTLE/DATA/L2CAP/ATT/ ###
             elif ATT_Read_Request in pkt:
@@ -155,12 +124,16 @@ while running<10:
                 pass
             elif ATT_Write_Response in pkt:
                 pass    
+            elif ATT_Exchange_MTU_Request in pkt:
+                blueShiro.connected = True
+                blueShiro.connecting = False
+                print(Fore.GREEN + 'Connected (L2Cap channel established)')
             
             # keep connection alive
             elif BTLE_EMPTY_PDU in pkt and blueShiro.connected:
                 empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
                 blueShiro.send(empty_pdu)
-
+                running += 1
     sleep(0.01)
 
 
