@@ -195,11 +195,12 @@ class BTLE_ADV(Packet):
     fields_desc = [
         BitEnumField("RxAdd", 0, 1, {0: "public", 1: "random"}),
         BitEnumField("TxAdd", 0, 1, {0: "public", 1: "random"}),
+        # BitEnumField("ChSel", 0, 1, {0: "a", 1: "b"}), 
         BitField("RFU", 0, 2),  # Unused
         BitEnumField("PDU_type", 0, 4,
                      {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_NONCONN_IND", 3: "SCAN_REQ",  # noqa: E501
                       4: "SCAN_RSP", 5: "CONNECT_REQ", 6: "ADV_SCAN_IND"}),  # noqa: E501
-        BitField("unused", 0, 2),  # Unused
+        BitField("ChSel", 0, 2),    # BitField("unused", 0, 2),  # Unused
         XBitField("Length", None, 6),
     ]
 
@@ -225,7 +226,7 @@ class BTLE_DATA(Packet):
         BitField("NESN", 0, 1),
         BitEnumField("LLID", 0, 2, {1: "continue", 2: "start", 3: "control"}),
         ByteField("len", None),  # BLE 4.2 and upwards can use 1 entire byte for length
-    ]
+    ] 
 
     def post_build(self, p, pay):
         if self.len is None:

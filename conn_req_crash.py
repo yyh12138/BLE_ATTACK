@@ -21,7 +21,7 @@ blueShiro.send(scan_req)
 blueShiro.scan_timer.start()
 
 print(Fore.GREEN + 'Waiting adv from ' + blueShiro.slave_addr)
-while running<10:
+while running<20:
     pkt = None
     data = blueShiro.driver.raw_receive()
     if data:
@@ -126,5 +126,5 @@ while running<10:
 terminate_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=3) / CtrlPDU() / LL_TERMINATE_IND(code=0x13)
 blueShiro.send(terminate_req)
 blueShiro.driver.save_pcap(filename="nRF52Dongle_" + os.path.basename(__file__).split('.')[0] + ".pcap")
-sleep(2)
-print(Fore.YELLOW + "Connection Reseting. Script Ends")
+sleep(1)
+print(Fore.YELLOW + "Connection Closed. Script Ends")
