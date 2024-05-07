@@ -39,21 +39,21 @@ class BlueShiro:
         self.fragment_start = False
         self.fragment_left = 0
         
-        self.conn_skd = None
-        self.conn_iv = None
+        self.conn_skd = "\x00" * 8  # init SKDm
+        self.conn_iv  = "\x00" * 4  # init IVm
         self.conn_ltk = None
 
         self.scan_timer = Timer(3, self.scan)
         self.scan_timer.daemon = True
         self.scan_timer.setName("scan_timer")
 
-    def set_pairing_iocap(self, iocap=0x03):
+    def set_pairing_iocap(self, iocap=0x04):
         # iocap = 0x01                 DisplayYesNo
         #         0x03                 NoInputNoOutput
         #         0x04                 KeyboardDisplay
         self.pairing_iocap = iocap
 
-    def set_pairing_auth_request(self, auth_request=0x00):
+    def set_pairing_auth_request(self, auth_request=0x08 | 0x01):
         # auth_request = 0x00          No bounding
         #                0x01          bounding
         #                0x08 | 0x01   LESC + bounding
@@ -61,11 +61,23 @@ class BlueShiro:
         #                0x08 | 0x04 | 0x01  LESC + MITM + bounding
         self.pairing_auth_request = auth_request
     
+    def set_pairing_oob(self, oob=0):
+        self.pairing_oob = oob
+
     def set_NRF52Dongle_debug_mode(self, debug=False):
         self.driver.set_debug_mode(debug)
 
     def send(self, pkt):
-        self.driver.send(pkt)
+        if self.encryptable:
+            self._send_encrypted(pkt)
+        else:
+            self.driver.send(pkt)
+
+    def receive(self, pkt):
+        if self.encryptable:
+            return self._receive_encrypted(pkt)
+        else:
+            return pkt
 
     def scan(self):
         if not self.connected:
@@ -74,7 +86,7 @@ class BlueShiro:
                 AdvA=self.slave_addr)
             self.send(scan_req)
 
-    def send_encrypted(self, pkt):
+    def _send_encrypted(self, pkt):
         try:
             raw_pkt = bytearray(raw(pkt))
             self.access_addr = raw_pkt[:4]
@@ -86,7 +98,7 @@ class BlueShiro:
         except Exception as e:
             print(Fore.RED + "Send Encrypted Wrong: " + e)
 
-    def receive_encrypted(self, pkt):
+    def _receive_encrypted(self, pkt):
         raw_pkt = bytearray(raw(pkt))
         self.access_addr = raw_pkt[:4]
         header = raw_pkt[4]
@@ -141,3 +153,7 @@ class BlueShiro:
         else:
             self.fragment_start = False
             return pkt
+        
+    def bt_crypto_e(key, plaintext):
+        aes = AES.new(key, AES.MODE_ECB)
+        return aes.encrypt(plaintext)
