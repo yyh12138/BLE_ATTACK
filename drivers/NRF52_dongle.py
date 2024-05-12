@@ -82,16 +82,14 @@ class NRF52Dongle:
         l = bytearray([pkt_len & 0xFF, (pkt_len >> 8) & 0xFF])  # Pack length in 2 bytes (little infian)
         data = NRF52_CMD_DATA + l + raw_pkt + crc
         self.serial.write(data)
-
         if self.n_debug:
             print('Hexs sent: ' + binascii.hexlify(data).upper())
-
+        if self.logs_pcap:
+            self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=0x3) / pkt)
         return data
 
     def send(self, scapy_pkt, print_tx=True):
         self.raw_send(raw(scapy_pkt))
-        if self.logs_pcap:
-            self.packets_buffer.append(NORDIC_BLE(board=75, protocol=2, flags=0x3) / scapy_pkt)
         if print_tx:
             print(Fore.MAGENTA + "TX ---> " + scapy_pkt.summary()[7:])
 

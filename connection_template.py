@@ -48,7 +48,7 @@ while running<80:
                     exit(0)
                 blueShiro.connecting = True
                 blueShiro.scan_timer.cancel()
-                blueShiro.slave_addr_type = pkt.RxAdd
+                blueShiro.slave_addr_type = pkt.TxAdd
                 print(Fore.GREEN + blueShiro.slave_addr.upper() + ' Detected')
                 conn_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type, TxAdd=blueShiro.master_addr_type, PDU_type=5) / BTLE_CONNECT_REQ(
                     InitA=blueShiro.master_addr,

@@ -1,5 +1,4 @@
-import os
-import sys
+import os, sys
 from binascii import hexlify
 from time import sleep
 
@@ -11,10 +10,12 @@ from colorama import Fore
 
 phone_address = "fc:a9:f5:45:42:5a"
 temperature_sensor_address = "a4:c1:38:7d:ab:b9"
+blinky_address = "d9:91:8a:6a:7a:ba"
 running = 0
-blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", "a4:c1:38:7d:ab:b9")
+blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", blinky_address)
 
 blueShiro.set_pairing_iocap(0x04)                 # KeyboardDisplay
+blueShiro.set_pairing_oob(0)
 blueShiro.set_pairing_auth_request(0x08 | 0x01)   # LESC + Bounding
 
 scan_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type) / BTLE_SCAN_REQ(
@@ -51,7 +52,7 @@ while running<77:
                     exit(0)
                 blueShiro.connecting = True
                 blueShiro.scan_timer.cancel()
-                blueShiro.slave_addr_type = pkt.RxAdd
+                blueShiro.slave_addr_type = pkt.TxAdd
                 print(Fore.GREEN + blueShiro.slave_addr.upper() + ' Detected')
                 conn_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type, TxAdd=blueShiro.master_addr_type, PDU_type=5) / BTLE_CONNECT_REQ(
                     InitA=blueShiro.master_addr,
@@ -70,7 +71,7 @@ while running<77:
                 blueShiro.send(conn_req)
                 blueShiro.version_updating = True
             elif BTLE_DATA in pkt and blueShiro.version_updating:
-                version_ind = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_VERSION_IND(version='5.0')
+                version_ind = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_VERSION_IND(version='4.2')
                 blueShiro.send(version_ind)
                 blueShiro.version_updating = False
                 blueShiro.version_updated = True
@@ -108,7 +109,9 @@ while running<77:
                 blueShiro.send(start_enc_rsp)
             elif LL_START_ENC_RSP in pkt:
                 pass
-            
+            elif LL_TERMINATE_IND in pkt:
+                print(Fore.YELLOW + "Slave closes the connection.")
+                break          
 
             ### BTLE/DATA/L2CAP/ ###
             elif L2CAP_Connection_Parameter_Update_Request in pkt:
@@ -131,16 +134,19 @@ while running<77:
             elif SM_Pairing_Request in pkt:
                 pass
             elif SM_Pairing_Response in pkt:
+                print(hexlify(pkt.build()))
                 sm_confirm = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Confirm(
                     confirm=""
                 )
                 blueShiro.send(sm_confirm)
             elif SM_Confirm in pkt:
+                print(hexlify(pkt.build()))
                 sm_random = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Random(
                     random=""
                 )
                 blueShiro.send(sm_random)
             elif SM_Random in pkt:
+                print(hexlify(pkt.build()))
                 enc_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_ENC_REQ(
                     rand="\x00",
                     ediv="\x00",
@@ -149,6 +155,8 @@ while running<77:
                 )
                 blueShiro.send(enc_req)
             elif SM_Public_Key in pkt:
+                pass
+            elif SM_Encryption_Information in pkt:
                 pass
             elif SM_Failed in pkt:
                 pass
@@ -179,4 +187,4 @@ terminate_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=3) / Ct
 blueShiro.send(terminate_req)
 blueShiro.driver.save_pcap(filename="nRF52Dongle_" + os.path.basename(__file__).split('.')[0] + ".pcap")
 sleep(1)
-print(Fore.YELLOW + "Connection Closed. Script Ends")
+print(Fore.YELLOW + "Master closes the connection. Script Ends")

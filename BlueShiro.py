@@ -42,6 +42,7 @@ class BlueShiro:
         self.conn_skd = "\x00" * 8  # init SKDm
         self.conn_iv  = "\x00" * 4  # init IVm
         self.conn_ltk = None
+        self.conn_session_key = None
 
         self.scan_timer = Timer(3, self.scan)
         self.scan_timer.daemon = True
@@ -53,9 +54,9 @@ class BlueShiro:
         #         0x04                 KeyboardDisplay
         self.pairing_iocap = iocap
 
-    def set_pairing_auth_request(self, auth_request=0x08 | 0x01):
-        # auth_request = 0x00          No bounding
-        #                0x01          bounding
+    def set_pairing_auth_request(self, auth_request=0x01):
+        # auth_request = 0x00          LELP + No bounding
+        #                0x01          LELP + bounding
         #                0x08 | 0x01   LESC + bounding
         #                0x04 | 0x01   MITM + bounding
         #                0x08 | 0x04 | 0x01  LESC + MITM + bounding
@@ -67,11 +68,11 @@ class BlueShiro:
     def set_NRF52Dongle_debug_mode(self, debug=False):
         self.driver.set_debug_mode(debug)
 
-    def send(self, pkt):
+    def send(self, pkt, print_tx=True):
         if self.encryptable:
-            self._send_encrypted(pkt)
+            self._send_encrypted(pkt, print_tx)
         else:
-            self.driver.send(pkt)
+            self.driver.send(pkt, print_tx)
 
     def receive(self, pkt):
         if self.encryptable:
@@ -86,33 +87,47 @@ class BlueShiro:
                 AdvA=self.slave_addr)
             self.send(scan_req)
 
-    def _send_encrypted(self, pkt):
-        try:
-            raw_pkt = bytearray(raw(pkt))
-            self.access_addr = raw_pkt[:4]
-            header = raw_pkt[4]
-            length = raw_pkt[5] + 4 
-            crc = '\x00\x00\x00'  # Dummy CRC (Dongle automatically calculates it)
-            # TODO
-            self.driver.raw_send(self.access_addr + chr(header) + chr(length) + encrypt_pkt + mic + crc)
-        except Exception as e:
-            print(Fore.RED + "Send Encrypted Wrong: " + e)
-
-    def _receive_encrypted(self, pkt):
+    def _send_encrypted(self, pkt, print_tx):
         raw_pkt = bytearray(raw(pkt))
         self.access_addr = raw_pkt[:4]
         header = raw_pkt[4]
+        length = raw_pkt[5] + 4 # add 4 bytes for mic
+        crc = b'\x00\x00\x00'  # Dummy CRC (Dongle automatically calculates it)
+        
+        pkt_count = bytearray(struct.pack("<Q", self.conn_tx_pkt_count)[:5])
+        pkt_count[4] |= 0x80   # set for M->S
+        nonce = pkt_count + self.conn_iv
+
+        aes = AES.new(self.conn_session_key, AES.MODE_CCM, nonce=nonce, mac_len=4) # mac=mic
+        aes.update(chr(header&0xE3))
+        encrypt_pkt, mic = aes.encrypt_and_digest(raw_pkt[6:-3]) # get payload without CRC
+        self.conn_tx_pkt_count += 1
+        self.driver.raw_send(self.access_addr + chr(header) + chr(length) + encrypt_pkt + mic + crc)
+        if print_tx:
+            print(Fore.MAGENTA + "TX ---> [Encrypted] " + pkt.summary()[7:])
+
+    def _receive_encrypted(self, pkt):
+        raw_pkt = bytearray(raw(pkt))
+        header = raw_pkt[4]
         length = raw_pkt[5]
-        crc = '\x00\x00\x00'  # Fake CRC (Dongle automatically calculates it)
+        crc = b'\x00\x00\x00'  # Fake CRC (Dongle automatically calculates it)
         if length == 0 or length<5:
             return pkt        # Empty PDU
         length -= 4           # subtract MIC
-        # TODO
-        decrypt_pkt = ''
+        
+        pkt_count = bytearray(struct.pack("<Q", self.conn_tx_pkt_count)[:5])
+        pkt_count[4] |= 0x7F  # set for S->M
+        nonce = pkt_count + self.conn_iv
+
+        aes = AES.new(self.conn_session_key, AES.MODE_CCM, nonce=nonce, mac_len=4) # amc=mic
+        aes.update(chr(header & 0xE3)) # Calculate mic over header cleared of NES, SN and MD
+        decrypt_pkt = aes.decrypt(raw_pkt[6:-4-3]) # get payload without CRC
+        self.conn_rx_pkt_count += 1
         try:
-            pass
+            mic = raw_pkt[6+length:-3]
+            aes.verify(mic)
         except Exception as e:
-            print(Fore.RED + "MIC Wrong: " + e)
+            print(Fore.RED + "MIC Wrong: " + str(e))
         # resamble the pkt
         return BTLE(self.access_addr + chr(header) + chr(length) + decrypt_pkt + crc)
 
@@ -145,7 +160,7 @@ class BlueShiro:
             self.fragment += raw(pkt[BTLE_DATA].payload)
             if pkt[BTLE_DATA].len >= self.fragment_left:
                 self.fragment_start = False
-                pkt = BTLE(self.fragment + '\x00\x00\x00')
+                pkt = BTLE(self.fragment + b'\x00\x00\x00')
                 pkt.len = len(pkt[BTLE_DATA].payload)  # update ble header length
                 return pkt
             else:
