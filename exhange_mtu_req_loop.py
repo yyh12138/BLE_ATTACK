@@ -94,8 +94,6 @@ while running<77:
             elif LL_LENGTH_RSP in pkt:
                 exchange_mtu_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
                 blueShiro.send(exchange_mtu_req)
-                exchange_mtu_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
-                blueShiro.send(exchange_mtu_req)
             elif LL_ENC_RSP in pkt:
                 blueShiro.conn_skd += pkt[LL_ENC_RSP].skds  # SKD = SKDm | SKDs
                 blueShiro.conn_iv += pkt[LL_ENC_RSP].ivs    # IV  = IVm  | IVs
@@ -131,6 +129,7 @@ while running<77:
             elif SM_Pairing_Request in pkt:
                 pass
             elif SM_Pairing_Response in pkt:
+                blueShiro.send(exchange_mtu_req)
                 confirm = "\x11\x62\x01\x90" * 4
                 sm_confirm = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Confirm(
                     confirm=confirm
@@ -196,7 +195,7 @@ while running<77:
             elif ATT_Write_Response in pkt:
                 pass    
             elif ATT_Error_Response in pkt:
-                pass
+                blueShiro.send(exchange_mtu_req)
 
             # keep connection alive
             elif BTLE_EMPTY_PDU in pkt:
