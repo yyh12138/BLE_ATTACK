@@ -45,6 +45,8 @@
 #include "bt.h"
 #include "bthost.h"
 
+
+#define PY_SSIZE_T_CLEAN
 #define SMP_CID 0x0006
 #define SMP_BREDR_CID 0x0007
 

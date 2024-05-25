@@ -6,7 +6,7 @@ from threading import Timer
 from scapy.compat import raw
 from drivers.NRF52_dongle import NRF52Dongle
 from colorama import Fore
-from Crypto.Cipher import AES
+from Cryptodome.Cipher import AES
 
 class BlueShiro:
     def __init__(self, masterAddr=None, serialPort=None, slaveAddr=None) ->None:

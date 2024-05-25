@@ -12,6 +12,7 @@ extern "C"
 #include "bluetooth.h"
 }
 
+#define PY_SSIZE_T_CLEAN
 #define MODULE_NAME "BLESMPServer"
 #define MODULE_DESCRIPTION "A SMP Server module\nPackets received are answered according to bluetooth SMP specification\nBlueZ linux implementation is used"
 

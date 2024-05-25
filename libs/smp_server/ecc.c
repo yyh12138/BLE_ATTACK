@@ -28,6 +28,9 @@
 #include <config.h>
 #endif
 
+#include <Python.h>
+#define PY_SSIZE_T_CLEAN
+
 #define _GNU_SOURCE
 #include <fcntl.h>
 #include <unistd.h>

@@ -1,6 +1,8 @@
 from setuptools import Extension
 from setuptools import setup, find_packages
+import os
 
+os.environ["PY_SSIZE_T_CLEAN"] =  "1"
 
 module = Extension(
     "BLESMPServer",

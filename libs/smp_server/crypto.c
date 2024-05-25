@@ -25,6 +25,9 @@
 #include <config.h>
 #endif
 
+#include <Python.h>
+#define PY_SSIZE_T_CLEAN
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
