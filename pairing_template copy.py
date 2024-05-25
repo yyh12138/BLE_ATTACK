@@ -94,6 +94,8 @@ while running<77:
             elif LL_LENGTH_RSP in pkt:
                 exchange_mtu_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
                 blueShiro.send(exchange_mtu_req)
+                exchange_mtu_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
+                blueShiro.send(exchange_mtu_req)
             elif LL_ENC_RSP in pkt:
                 blueShiro.conn_skd += pkt[LL_ENC_RSP].skds  # SKD = SKDm | SKDs
                 blueShiro.conn_iv += pkt[LL_ENC_RSP].ivs    # IV  = IVm  | IVs
@@ -129,35 +131,19 @@ while running<77:
             elif SM_Pairing_Request in pkt:
                 pass
             elif SM_Pairing_Response in pkt:
-                # sm_confirm = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Confirm(
-                #     confirm=""
-                # )
-                # blueShiro.send(sm_confirm)
-                pkt = pkt[SM_Hdr]
-                print(raw(L2CAP_Hdr() / pkt))
-                print(raw(HCI_Hdr() / HCI_ACL_Hdr() / L2CAP_Hdr() / pkt))
-                smp_answer = BLESMPServer.send_hci(raw(HCI_Hdr() / HCI_ACL_Hdr() / L2CAP_Hdr() / pkt))
-                smp_answer = bytes(smp_answer, encoding="utf8")
-                print(smp_answer)
-                if smp_answer is not None and isinstance(smp_answer, list):
-                    for answer in smp_answer:
-                        answer = bytes(smp_answer, encoding="utf8")
-                        answer = HCI_Hdr(answer)
-                        answer.show()
-                        print("------------------------------------")
-                        if SM_Hdr in answer:
-                            # smp_pkt = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / answer[SM_Hdr]
-                            # blueShiro.send(smp_pkt)
-                            print(answer.summary())
+                confirm = "\x11\x62\x01\x90" * 4
+                sm_confirm = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Confirm(
+                    confirm=confirm
+                )
+                blueShiro.send(sm_confirm)
             elif SM_Confirm in pkt:
+                # random = "\x3c\x62\x01\x70" * 4
                 # sm_random = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Random(
-                #     random=""
+                #     random=random
                 # )
                 # blueShiro.send(sm_random)
                 pass
             elif SM_Random in pkt:
-                blueShiro.conn_ltk = BLESMPServer.get_ltk()
-                print(Fore.YELLOW + "LTK from SMP Server: " + hexlify(blueShiro.conn_ltk).upper())
                 enc_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_ENC_REQ(
                     rand="\x00",
                     ediv="\x00",
@@ -209,7 +195,9 @@ while running<77:
                 pass
             elif ATT_Write_Response in pkt:
                 pass    
-            
+            elif ATT_Error_Response in pkt:
+                pass
+
             # keep connection alive
             elif BTLE_EMPTY_PDU in pkt:
                 empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn, LLID=1, len=0) / BTLE_EMPTY_PDU()

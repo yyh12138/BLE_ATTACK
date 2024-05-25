@@ -136,21 +136,21 @@ class NRF52Dongle:
 
         return None
 
-    # Set the initial value of NESN and SN
-    def set_nesnsn(self, value):
-        # 0b01 -> set NESN, 0b10 -> set SN
-        data = NRF52_CMD_CONFIG_NESNSN + bytearray([value])
-        self.serial.write(data)
+    # # Set the initial value of NESN and SN
+    # def set_nesnsn(self, value):
+    #     # 0b01 -> set NESN, 0b10 -> set SN
+    #     data = NRF52_CMD_CONFIG_NESNSN + bytearray([value])
+    #     self.serial.write(data)
 
-    # Set the initial value of NESN
-    def set_nesn(self, value):
-        data = NRF52_CMD_CONFIG_NESN + bytearray([value])
-        self.serial.write(data)
+    # # Set the initial value of NESN
+    # def set_nesn(self, value):
+    #     data = NRF52_CMD_CONFIG_NESN + bytearray([value])
+    #     self.serial.write(data)
 
-    # Set the initial value of SN
-    def set_sn(self, value):
-        data = NRF52_CMD_CONFIG_SN + bytearray([value])
-        self.serial.write(data)
+    # # Set the initial value of SN
+    # def set_sn(self, value):
+    #     data = NRF52_CMD_CONFIG_SN + bytearray([value])
+    #     self.serial.write(data)
 
     def get_tx_packet(self):
         pkt = self.sent_pkt
