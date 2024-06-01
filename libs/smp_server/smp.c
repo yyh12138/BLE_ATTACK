@@ -21,6 +21,8 @@
  *
  */
 
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
@@ -186,7 +188,8 @@ static void smp_send(struct smp_conn *conn, uint8_t smp_cmd, const void *data,
 		cid = SMP_BREDR_CID;
 	else
 		cid = SMP_CID;
-
+	
+	printf("send data:%s\n", conn->smp->bthost->send_data);
 	bthost_send_cid_v(conn->smp->bthost, conn->handle, cid, iov, 2);
 }
 
@@ -516,7 +519,7 @@ static void pairing_rsp(struct smp_conn *conn, const void *data, uint16_t len)
 	bt_crypto_c1(smp->crypto, conn->tk, conn->prnd, conn->prsp,
 				 conn->preq, conn->ia_type, conn->ia,
 				 conn->ra_type, conn->ra, cfm);
-
+	printf("crypto->ref_count: %d\nconn->tk: %s\n", smp->crypto->ref_count, conn->tk);
 	smp_send(conn, BT_L2CAP_SMP_PAIRING_CONFIRM, cfm, sizeof(cfm));
 }
 static void sc_check_confirm(struct smp_conn *conn)
@@ -778,7 +781,7 @@ void smp_data(void *conn_data, const void *data, uint16_t len)
 		return;
 	}
 
-	opcode = *((const uint8_t *)data);
+	opcode = *((const uint8_t *)data); // l2_data 
 
 	switch (opcode)
 	{

@@ -1,4 +1,4 @@
-import os, sys, importlib
+import os, sys
 from binascii import hexlify
 from time import sleep
 
@@ -9,19 +9,13 @@ from scapy.utils import *
 from BlueShiro import BlueShiro
 from colorama import Fore
 
-importlib.import_module("BLESMPServer")
-import BLESMPServer
-
 phone_address = "fc:a9:f5:45:42:5a"
 temperature_sensor_address = "a4:c1:38:7d:ab:b9"
 blinky_address = "d9:91:8a:6a:7a:ba"
 lock_address = "6c:36:6c:68:30:53"
 running = 0
-blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", blinky_address)
+blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", lock_address)
 
-blueShiro.set_pairing_iocap(0x04)                 # KeyboardDisplay
-blueShiro.set_pairing_oob(0)
-blueShiro.set_pairing_auth_request(0x01)          # LELP + Bounding
 
 scan_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type) / BTLE_SCAN_REQ(
     ScanA=blueShiro.master_addr,
@@ -30,7 +24,7 @@ blueShiro.send(scan_req)
 blueShiro.scan_timer.start()
 
 print(Fore.GREEN + 'Waiting adv from ' + blueShiro.slave_addr)
-while running<77:
+while True:
     pkt = None
     data = blueShiro.driver.raw_receive()
     if data:
@@ -56,7 +50,7 @@ while running<77:
                     print(Fore.RED + blueShiro.slave_addr.upper() + ' Disconnect')
                     exit(0)
                 blueShiro.connecting = True
-                blueShiro.scan_timer.cancel()
+                # blueShiro.scan_timer.cancel()
                 blueShiro.slave_addr_type = pkt.TxAdd
                 print(Fore.GREEN + blueShiro.slave_addr.upper() + ' Detected')
                 conn_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type, TxAdd=blueShiro.master_addr_type, PDU_type=5) / BTLE_CONNECT_REQ(
@@ -96,24 +90,18 @@ while running<77:
                 exchange_mtu_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
                 blueShiro.send(exchange_mtu_req)
             elif LL_ENC_RSP in pkt:
-                blueShiro.conn_skd += pkt[LL_ENC_RSP].skds  # SKD = SKDm | SKDs
-                blueShiro.conn_iv += pkt[LL_ENC_RSP].ivs    # IV  = IVm  | IVs
-                blueShiro.conn_ltk = "\x00" * 16
-                blueShiro.conn_session_key = blueShiro.bt_crypto_e(blueShiro.conn_ltk[::-1], blueShiro.conn_skd[::-1])
-                print(Fore.GREEN + 'Received SKD: ' + hexlify(blueShiro.conn_skd))
-                print(Fore.GREEN + 'Received  IV: ' + hexlify(blueShiro.conn_iv))
-                print(Fore.GREEN + 'Assumed  LTK: ' + hexlify(blueShiro.conn_ltk))
-                print(Fore.GREEN + 'AES-CCM  Key: ' + hexlify(blueShiro.conn_session_key))
+                pass
             elif LL_START_ENC_REQ in pkt:
-                print(Fore.YELLOW + "Start encryption")
-                blueShiro.encryptable = True
-                start_enc_rsp = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_START_ENC_RSP()
-                blueShiro.send(start_enc_rsp)
+                pass
             elif LL_START_ENC_RSP in pkt:
                 pass
             elif LL_TERMINATE_IND in pkt:
                 print(Fore.YELLOW + "Slave closes the connection.")
-                break          
+                sleep(1)
+                blueShiro.send(scan_req)    
+                print(Fore.GREEN + "Restart connecting.")
+                blueShiro.connecting = False
+                blueShiro.connected = False
             elif LL_REJECT_IND in pkt:
                 pass
             
@@ -127,44 +115,15 @@ while running<77:
                 pass
 
             ### BTLE/DATA/L2CAP/SM/ ###
-            elif SM_Pairing_Request in pkt:
-                pass
             elif SM_Pairing_Response in pkt:
-                # sm_confirm = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Confirm(
-                #     confirm=""
-                # )
-                # blueShiro.send(sm_confirm)
-                pkt = pkt[SM_Hdr]
-                print(raw(HCI_Hdr() / HCI_ACL_Hdr() / L2CAP_Hdr() / pkt))
-                smp_answer = BLESMPServer.send_hci(raw(HCI_Hdr() / HCI_ACL_Hdr() / L2CAP_Hdr() / pkt))
-                smp_answer = bytes(smp_answer, encoding="utf8")
-                print(smp_answer)
-                if smp_answer is not None and isinstance(smp_answer, list):
-                    for answer in smp_answer:
-                        answer = bytes(smp_answer, encoding="utf8")
-                        answer = HCI_Hdr(answer)
-                        answer.show()
-                        print("------------------------------------")
-                        if SM_Hdr in answer:
-                            # smp_pkt = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / answer[SM_Hdr]
-                            # blueShiro.send(smp_pkt)
-                            print(answer.summary())
+                sm_confirm = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Confirm(
+                    confirm=""
+                )
+                blueShiro.send(sm_confirm)
             elif SM_Confirm in pkt:
-                # sm_random = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Random(
-                #     random=""
-                # )
-                # blueShiro.send(sm_random)
                 pass
             elif SM_Random in pkt:
-                blueShiro.conn_ltk = BLESMPServer.get_ltk()
-                print(Fore.YELLOW + "LTK from SMP Server: " + hexlify(blueShiro.conn_ltk).upper())
-                enc_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_ENC_REQ(
-                    rand="\x00",
-                    ediv="\x00",
-                    skdm=blueShiro.conn_skd,
-                    ivm=blueShiro.conn_iv
-                )
-                blueShiro.send(enc_req)
+                pass
             elif SM_Public_Key in pkt:
                 pass
             elif SM_Encryption_Information in pkt:
@@ -175,41 +134,8 @@ while running<77:
             ### BTLE/DATA/L2CAP/ATT/ ###
             elif ATT_Exchange_MTU_Response in pkt:
                 blueShiro.connected = True
-                blueShiro.connecting = False
-                # pairing_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / SM_Hdr() / SM_Pairing_Request(
-                #     iocap=blueShiro.pairing_iocap,
-                #     oob=blueShiro.pairing_oob,
-                #     authentication=blueShiro.pairing_auth_request,
-                #     max_key_size=16,
-                #     initiator_key_distribution=0x07,
-                #     responder_key_distribution=0x07
-                # )
-                # blueShiro.send(pairing_req)
-                raw_master_addr = ''.join(map(lambda x: chr(int(x, 16)), blueShiro.master_addr.split(':')))
-                raw_slave_addr = ''.join(map(lambda x: chr(int(x, 16)), blueShiro.slave_addr.split(':')))
-                BLESMPServer.set_pin_code('\x00' * 4)
-                BLESMPServer.configure_connection(raw_master_addr, raw_slave_addr, 
-                                                blueShiro.pairing_oob, 
-                                                blueShiro.pairing_iocap, 
-                                                blueShiro.pairing_auth_request)
-                hci_res = BLESMPServer.pairing_request()
-                hci_res = bytes(hci_res, encoding="utf8")
-                if hci_res is not None:
-                    pairing_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / HCI_Hdr(hci_res)[SM_Hdr]
-                    blueShiro.send(pairing_req)
-            elif ATT_Read_Request in pkt:
-                pass
-            elif ATT_Read_Response in pkt:
-                pass
-            elif ATT_Read_By_Group_Type_Response in pkt:
-                pass
-            elif ATT_Write_Command in pkt:
-                pass
-            elif ATT_Write_Request in pkt:
-                pass
-            elif ATT_Write_Response in pkt:
-                pass    
-            
+                blueShiro.connecting = False 
+
             # keep connection alive
             elif BTLE_EMPTY_PDU in pkt:
                 empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn, LLID=1, len=0) / BTLE_EMPTY_PDU()
@@ -222,4 +148,4 @@ terminate_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=3) / Ct
 blueShiro.send(terminate_req)
 blueShiro.driver.save_pcap(filename="nRF52Dongle_" + os.path.basename(__file__).split('.')[0] + ".pcap")
 sleep(1)
-print(Fore.YELLOW + "Master closes the connection. Script Ends")
+print(Fore.YELLOW + "Master closes the connection.")

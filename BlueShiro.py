@@ -45,7 +45,7 @@ class BlueShiro:
         self.conn_session_key = None
 
         self.scan_timer = Timer(3, self.scan)
-        self.scan_timer.daemon = True
+        self.scan_timer.daemon = False
         self.scan_timer.setName("scan_timer")
 
     def set_pairing_iocap(self, iocap=0x04):
@@ -65,6 +65,11 @@ class BlueShiro:
     def set_pairing_oob(self, oob=0):
         self.pairing_oob = oob
 
+    def set_pairing_mode(self, mode=False):
+        # pairing_mode = False      LELP
+        #                True       LESC
+        self.pairing_mode = mode
+
     def set_NRF52Dongle_debug_mode(self, debug=False):
         self.driver.set_debug_mode(debug)
 
@@ -81,7 +86,7 @@ class BlueShiro:
             return pkt
 
     def scan(self):
-        if not self.connected:
+        if not self.connecting:
             scan_req = BTLE() / BTLE_ADV(RxAdd=self.slave_addr_type) / BTLE_SCAN_REQ(
                 ScanA=self.master_addr_type,
                 AdvA=self.slave_addr)
@@ -172,3 +177,19 @@ class BlueShiro:
     def bt_crypto_e(key, plaintext):
         aes = AES.new(key, AES.MODE_ECB)
         return aes.encrypt(plaintext)
+    
+    def build_pairing_confirm(self, mode):
+        self.pairing_mode = mode
+        confirm = "\x00" * 16
+        if mode:
+            # LESC
+            pass
+        else:
+            # LELP
+            pass
+        return confirm
+    
+    def build_pairing_random(self, value):
+        random = "\x00" * 16
+        # TODO
+        return random

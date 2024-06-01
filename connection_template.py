@@ -11,8 +11,11 @@ from colorama import Fore
 
 phone_address = "fc:a9:f5:45:42:5a"
 temperature_sensor_address = "a4:c1:38:7d:ab:b9"
+blinky_address = "d9:91:8a:6a:7a:ba"
+lock_address = "6c:36:6c:68:30:53"
+
 running = 0
-blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", "a4:c1:38:7d:ab:b9")
+blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", temperature_sensor_address)
 
 scan_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type) / BTLE_SCAN_REQ(
     ScanA=blueShiro.master_addr,

@@ -25,7 +25,12 @@
 #include <stdint.h>
 #include <sys/uio.h>
 
-struct bt_crypto;
+struct bt_crypto {
+	int ref_count;
+	int ecb_aes;
+	int urandom;
+	int cmac_aes;
+};
 
 struct bt_crypto *bt_crypto_new(void);
 

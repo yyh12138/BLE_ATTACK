@@ -20,13 +20,12 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#include <Python.h>
-#define PY_SSIZE_T_CLEAN
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -78,12 +77,12 @@ struct af_alg_iv {
 /* Maximum message length that can be passed to aes_cmac */
 #define CMAC_MSG_MAX	80
 
-struct bt_crypto {
-	int ref_count;
-	int ecb_aes;
-	int urandom;
-	int cmac_aes;
-};
+// struct bt_crypto {
+// 	int ref_count;
+// 	int ecb_aes;
+// 	int urandom;
+// 	int cmac_aes;
+// };
 
 static int urandom_setup(void)
 {

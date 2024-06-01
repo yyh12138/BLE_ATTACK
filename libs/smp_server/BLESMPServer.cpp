@@ -1,18 +1,17 @@
-
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <queue>
 #include <string>
-
+ 
 extern "C"
 {
 #include "bthost.h"
 #include "bluetooth.h"
 }
 
-#define PY_SSIZE_T_CLEAN
 #define MODULE_NAME "BLESMPServer"
 #define MODULE_DESCRIPTION "A SMP Server module\nPackets received are answered according to bluetooth SMP specification\nBlueZ linux implementation is used"
 
@@ -47,6 +46,8 @@ static PyObject *send_hci(PyObject *self, PyObject *args)
     }
 
     bthost_receive_h4(blehost, str.buf, str.len);
+
+    printf("data:%x\n", str.buf);
 
     PyBuffer_Release(&str);
 

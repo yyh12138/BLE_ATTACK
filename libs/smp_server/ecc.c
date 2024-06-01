@@ -23,13 +23,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#include <Python.h>
-#define PY_SSIZE_T_CLEAN
 
 #define _GNU_SOURCE
 #include <fcntl.h>

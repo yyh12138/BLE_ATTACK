@@ -21,13 +21,12 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
-
-#include <Python.h>
-#define PY_SSIZE_T_CLEAN
 
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -2161,7 +2160,8 @@ static void process_acl(struct bthost *bthost, const void *data, uint16_t len)
 		hook->func(l2_data, l2_len, hook->user_data);
 		return;
 	}
-
+	printf("cid: %d in ACL\n", cid);
+	printf("smp data: %x\n", conn->smp_data);
 	switch (cid)
 	{
 	case 0x0001:
@@ -2190,7 +2190,7 @@ static void process_acl(struct bthost *bthost, const void *data, uint16_t len)
 void bthost_receive_h4(struct bthost *bthost, const void *data, uint16_t len)
 {
 	uint8_t pkt_type;
-
+	
 	if (!bthost)
 		return;
 
