@@ -10,9 +10,10 @@ from BlueShiro import BlueShiro
 from colorama import Fore
 
 phone_address = "fc:a9:f5:45:42:5a"
+lock_address = "6c:36:6c:68:30:53"
 temperature_sensor_address = "a4:c1:38:7d:ab:b9"
 running = 0
-blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", "a4:c1:38:7d:ab:b9")
+blueShiro = BlueShiro("70:a6:cc:b5:92:70", "/dev/ttyACM0", lock_address)
 
 scan_req = BTLE() / BTLE_ADV(RxAdd=blueShiro.slave_addr_type) / BTLE_SCAN_REQ(
     ScanA=blueShiro.master_addr,
@@ -21,7 +22,7 @@ blueShiro.send(scan_req)
 blueShiro.scan_timer.start()
 
 print(Fore.GREEN + 'Waiting adv from ' + blueShiro.slave_addr)
-while running<20:
+while running<40:
     pkt = None
     data = blueShiro.driver.raw_receive()
     if data:
@@ -36,6 +37,11 @@ while running<20:
             # print all CMD
             if BTLE_DATA in pkt:
                 print(Fore.CYAN + "RX <--- " + pkt.summary()[7:])
+                pkt_bytes = pkt.build()
+                binary_str = ''.join(format(byte, '08b') for byte in pkt_bytes)
+                _sn =  int(binary_str[36])
+                _nesn = int(binary_str[37])
+                blueShiro.set_sn_and_nesn(_sn, _nesn)
             ### BTLE/ADV/ ###
             if (BTLE_SCAN_RSP in pkt or BTLE_ADV in pkt) and pkt.AdvA == blueShiro.slave_addr.lower() and blueShiro.connecting == False:
                 if blueShiro.connected:
@@ -62,25 +68,31 @@ while running<20:
                 blueShiro.send(conn_req)
                 blueShiro.version_updating = True
             elif BTLE_DATA in pkt and blueShiro.version_updating:
-                version_ind = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / CtrlPDU() / LL_VERSION_IND(version='5.0')
+                version_ind = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / CtrlPDU() / LL_VERSION_IND(version='4.2')
                 blueShiro.send(version_ind)
                 blueShiro.version_updating = False
                 blueShiro.version_updated = True
+            elif BTLE_DATA in pkt and blueShiro.connected:
+                blueShiro.send(version_ind)
+                blueShiro.connected = False
 
             ### BTLE/DATA/CTRL/ ###
             elif LL_VERSION_IND in pkt and blueShiro.version_updated:
-                exchange_mtu_request = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
-                exchange_mtu_request.len = 5 
+                exchange_mtu_request = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / ATT_Hdr() / ATT_Exchange_MTU_Request(mtu=247)
+                exchange_mtu_request.len = 8 
                 blueShiro.driver.send(exchange_mtu_request)
                 print(Fore.YELLOW + "Send wrong mtu length")
             elif LL_LENGTH_REQ in pkt:
                 pass
-            elif LL_LENGTH_RSP in pkt:
-                pass
+            elif LL_TERMINATE_IND in pkt:
+                print(Fore.YELLOW + "Slave closes the connection.")
+                blueShiro.connected = False
+                blueShiro.version_updated = False
+                break
             
             ### BTLE/DATA/L2CAP/ ###
             elif L2CAP_Connection_Parameter_Update_Request in pkt:
-                conn_param_update_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA() / L2CAP_Hdr() / L2CAP_CmdHdr(code=19, id=1) / L2CAP_Connection_Parameter_Update_Response(
+                conn_param_update_req = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn) / L2CAP_Hdr() / L2CAP_CmdHdr(code=19, id=1) / L2CAP_Connection_Parameter_Update_Response(
                     move_result=0
                 )
                 blueShiro.send(conn_param_update_req)
@@ -88,19 +100,16 @@ while running<20:
                 blueShiro.connecting = False
                 print(Fore.GREEN + 'Connected (L2Cap channel established)')
             elif L2CAP_Connection_Parameter_Update_Response in pkt:
-                print(Fore.RED + 'Device responded to a malformed packet')
-
-            ### BTLE/DATA/L2CAP/SM/ ###
-            elif SM_Pairing_Request in pkt:
-                pass
-            elif SM_Pairing_Response in pkt:
-                pass
-            elif SM_Public_Key in pkt:
-                pass
-            elif SM_Failed in pkt:
                 pass
 
             ### BTLE/DATA/L2CAP/ATT/ ###
+            elif ATT_Exchange_MTU_Request in pkt:
+                print(Fore.RED + 'Slave respondes to a malformed packet')
+            elif ATT_Exchange_MTU_Response in pkt:
+                blueShiro.connected=True
+            elif ATT_Error_Response in pkt:
+                print(Fore.GREEN + "Slave cannot process invalid PDU")
+                break
             elif ATT_Read_Request in pkt:
                 pass
             elif ATT_Read_Response in pkt:
@@ -113,12 +122,8 @@ while running<20:
                 pass    
             
             # keep connection alive
-            elif BTLE_EMPTY_PDU in pkt and blueShiro.connected:
-                bytes = pkt.build()
-                binary_str = ''.join(format(byte, '08b') for byte in bytes)
-                sn =  int(binary_str[36])
-                nesn = int(binary_str[37])
-                empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(LLID=1, len=0) / BTLE_EMPTY_PDU()
+            elif BTLE_EMPTY_PDU in pkt:
+                empty_pdu = BTLE(access_addr=blueShiro.access_addr) / BTLE_DATA(SN=blueShiro.sn, NESN=blueShiro.nesn, LLID=1, len=0) / BTLE_EMPTY_PDU()
                 blueShiro.send(empty_pdu)
                 running += 1
 
